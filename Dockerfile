@@ -1,27 +1,24 @@
-# LinkedIn Stats SaaS — Node 24 (built-in node:sqlite) + Chromium for Puppeteer.
+# LinkedIn Stats SaaS — Node 24 + system Chromium (no runtime download).
 FROM node:24-bookworm-slim
 
-# Chromium runtime libraries required by Puppeteer's bundled browser.
+# Install Chromium from the Debian package manager.
+# apt pulls in every runtime library Chromium needs, so no need to list them manually.
+# This is far more reliable than downloading Chrome-for-Testing at build time.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates fonts-liberation \
-      libasound2 libatk-bridge2.0-0 libatk1.0-0 libc6 libcairo2 libcups2 \
-      libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libgcc-s1 libglib2.0-0 \
-      libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libx11-6 libxcb1 \
-      libxcomposite1 libxdamage1 libxext6 libxfixes3 libxkbcommon0 \
-      libxrandr2 wget xdg-utils \
+      chromium \
+      ca-certificates \
+      fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
-# Keep Puppeteer's Chromium inside the image so it is present at runtime.
-ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
+# Skip Puppeteer's own Chrome download — we use the system binary instead.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm ci
-# Explicitly download Chrome for Testing into the cache dir.
-# This runs after npm ci so it always succeeds even if the postinstall was skipped.
-RUN npx puppeteer browsers install chrome
 
 COPY . .
 

@@ -17,6 +17,8 @@ export async function launchBrowser(opts: LaunchOptions): Promise<Browser> {
   const launchPromise = puppeteer.launch({
     headless: opts.headless,
     userDataDir: opts.userDataDir,
+    // Use system Chromium on Render (PUPPETEER_EXECUTABLE_PATH env var).
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     defaultViewport: opts.headless ? { width: 1280, height: 900 } : null,
     // These flags are required on Render (Linux, 512 MB, no GPU, no /dev/shm).
     args: opts.headless
