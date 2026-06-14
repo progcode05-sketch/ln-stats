@@ -132,10 +132,11 @@ async function loginWithCredentials(page: Page, email: string, password: string)
     }
   }
 
-  // LinkedIn has used several input selectors over the years — try them all.
-  const EMAIL_SEL = "input#username, input[name='session_key'], input[autocomplete='username']";
-  await page.waitForSelector(EMAIL_SEL, { timeout: 20_000 }).catch(() => undefined);
-  const emailInput = await page.$(EMAIL_SEL).catch(() => null);
+  // Wait for the email input to be visible and interactive before touching it.
+  const EMAIL_SEL = "#username, input[name='session_key'], input[autocomplete='username']";
+  const emailInput = await page
+    .waitForSelector(EMAIL_SEL, { visible: true, timeout: 20_000 })
+    .catch(() => null);
 
   if (!emailInput) {
     // Already authenticated from the persisted profile.
@@ -143,20 +144,21 @@ async function loginWithCredentials(page: Page, email: string, password: string)
     url = page.url();
     const pg = await page.title().catch(() => "");
     throw new LinkedInCredentialError(
-      `Could not find the LinkedIn login form. Page after navigation: ${url} — "${pg}". ` +
-      "This can happen if LinkedIn shows a cookie-consent wall or if the account needs a security check."
+      `Could not find the LinkedIn login form. Page: ${url} — "${pg}". ` +
+      "This can happen if LinkedIn shows a cookie-consent wall or bot-detection page."
     );
   }
 
   console.log("[browser] filling login form…");
-  await emailInput.click({ clickCount: 3 });
-  await page.keyboard.type(email, { delay: 45 });
+  // element.type() focuses the element automatically — no separate click needed.
+  await emailInput.type(email, { delay: 45 });
 
-  const PASSWORD_SEL = "input#password, input[name='session_password'], input[type='password']";
-  const passInput = await page.$(PASSWORD_SEL).catch(() => null);
+  const PASSWORD_SEL = "#password, input[name='session_password'], input[type='password']";
+  const passInput = await page
+    .waitForSelector(PASSWORD_SEL, { visible: true, timeout: 10_000 })
+    .catch(() => null);
   if (!passInput) throw new LinkedInCredentialError("Found email field but not password field.");
-  await passInput.click({ clickCount: 3 });
-  await page.keyboard.type(password, { delay: 45 });
+  await passInput.type(password, { delay: 45 });
 
   await Promise.all([
     page.waitForNavigation({ waitUntil: "domcontentloaded" }).catch(() => undefined),
