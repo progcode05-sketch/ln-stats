@@ -12,20 +12,46 @@ export interface LaunchOptions {
 
 // Generic launcher used by both the CLI (visible) and the SaaS worker (headless).
 export async function launchBrowser(opts: LaunchOptions): Promise<Browser> {
-  return puppeteer.launch({
+  const LAUNCH_TIMEOUT_MS = 60_000;
+
+  const launchPromise = puppeteer.launch({
     headless: opts.headless,
     userDataDir: opts.userDataDir,
     defaultViewport: opts.headless ? { width: 1280, height: 900 } : null,
+    // These flags are required on Render (Linux, 512 MB, no GPU, no /dev/shm).
     args: opts.headless
       ? [
           "--no-sandbox",
           "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
+          "--disable-dev-shm-usage",   // use /tmp instead of /dev/shm
           "--disable-gpu",
+          "--disable-software-rasterizer",
+          "--disable-extensions",
+          "--disable-background-networking",
+          "--disable-default-apps",
+          "--no-first-run",
+          "--no-zygote",               // skips the zygote process, saves ~50 MB
+          "--mute-audio",
           "--window-size=1280,900"
         ]
       : ["--start-maximized"]
   });
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(
+      () =>
+        reject(
+          new Error(
+            `Browser failed to start within ${LAUNCH_TIMEOUT_MS / 1000}s. ` +
+              "This usually means the server ran out of memory (Render free tier is 512 MB). " +
+              "Wait 30 seconds and try again. If it keeps happening, upgrade the Render instance."
+          )
+        ),
+      LAUNCH_TIMEOUT_MS
+    )
+  );
+
+  return Promise.race([launchPromise, timeoutPromise]);
 }
 
 // ── CLI entry point (visible browser, shared profile) ──────────────────────

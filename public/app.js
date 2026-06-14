@@ -547,6 +547,58 @@ async function deleteAccount() {
   location.href = "/";
 }
 
+// ─── Server log panel ────────────────────────────────────────────────────────
+
+const logState = {
+  stream: null,    // EventSource for /api/logs
+  open: false
+};
+
+function toggleLogs() {
+  const drawer = document.getElementById("logDrawer");
+  logState.open = !logState.open;
+  drawer.classList.toggle("open", logState.open);
+  if (logState.open && !logState.stream) startLogStream();
+}
+
+function clearLogs() {
+  const el = document.getElementById("logEntries");
+  if (el) el.innerHTML = "";
+}
+
+function startLogStream() {
+  if (logState.stream) return;
+  const es = new EventSource("/api/logs");
+  es.onmessage = (e) => {
+    try { appendLogEntry(JSON.parse(e.data)); } catch { /* ignore */ }
+  };
+  es.onerror = () => { /* auto-reconnects */ };
+  logState.stream = es;
+}
+
+function appendLogEntry(entry) {
+  const container = document.getElementById("logEntries");
+  if (!container) return;
+
+  const empty = container.querySelector(".log-empty");
+  if (empty) empty.remove();
+
+  const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 4;
+
+  const ts = new Date(entry.ts);
+  const hms = ts.toLocaleTimeString(undefined, { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+  const div = document.createElement("div");
+  div.className = `log-entry ${entry.level}`;
+  div.innerHTML = `<span class="log-ts">${hms}</span><span class="log-msg">${escapeHtml(entry.msg)}</span>`;
+  container.appendChild(div);
+
+  // Keep max 500 visible entries to avoid DOM bloat
+  while (container.childElementCount > 500) container.firstElementChild.remove();
+
+  if (wasAtBottom) container.scrollTop = container.scrollHeight;
+}
+
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
 function normalizePosts(posts) {

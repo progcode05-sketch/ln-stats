@@ -8,46 +8,56 @@ import { getCredentials, createCollection, savePosts, finishCollection, failColl
 import { updateJob } from "./jobs.js";
 import { CollectedPost } from "./types.js";
 
-// Runs a full headless collection for one user, streaming progress into the
-// job registry (which the SSE endpoint relays to the browser).
 export async function runCollection(userId: string): Promise<void> {
-  const creds = getCredentials(userId);
-  if (!creds) {
-    updateJob(userId, { phase: "error", error: "No LinkedIn credentials saved.", progress: null });
-    return;
-  }
+  let collectionId = -1;
+  let browser: Awaited<ReturnType<typeof launchBrowser>> | undefined;
 
-  const collectionId = createCollection(userId);
-  updateJob(userId, {
-    collectionId,
-    phase: "starting",
-    progress: { current: 0, total: 0, message: "Launching secure browser…" }
-  });
-
-  const userDataDir = path.join(CONFIG.profilesDir, userId);
-  await fs.mkdir(userDataDir, { recursive: true });
-
-  let browser;
   try {
+    const creds = getCredentials(userId);
+    if (!creds) {
+      updateJob(userId, { phase: "error", error: "No LinkedIn credentials saved.", progress: null });
+      return;
+    }
+
+    collectionId = createCollection(userId);
+    console.log(`[worker] collection ${collectionId} started for user ${userId}`);
+
+    updateJob(userId, {
+      collectionId,
+      phase: "starting",
+      progress: { current: 0, total: 0, message: "Launching secure browser…" }
+    });
+
+    const userDataDir = path.join(CONFIG.profilesDir, userId);
+    await fs.mkdir(userDataDir, { recursive: true });
+    console.log(`[worker] profile dir ready: ${userDataDir}`);
+
+    console.log("[worker] launching headless Chrome…");
     browser = await launchBrowser({ headless: true, userDataDir });
+    console.log("[worker] Chrome launched");
+
     const page = await newLinkedInPage(browser);
 
     updateJob(userId, {
       phase: "connecting",
       progress: { current: 0, total: 0, message: "Signing in to LinkedIn…" }
     });
+    console.log("[worker] signing in to LinkedIn…");
     await ensureServerLoggedIn(page, creds, () => {
       updateJob(userId, {
         phase: "connecting",
         progress: { current: 0, total: 0, message: "Signing in to LinkedIn…" }
       });
     });
+    console.log("[worker] signed in successfully");
 
     updateJob(userId, {
       phase: "collecting",
       progress: { current: 0, total: 0, message: "Finding your recent posts…" }
     });
+    console.log("[worker] discovering posts…");
     const posts = await discoverRecentPosts(page);
+    console.log(`[worker] found ${posts.length} posts`);
 
     const collected: CollectedPost[] = [];
     for (const [i, post] of posts.entries()) {
@@ -59,11 +69,13 @@ export async function runCollection(userId: string): Promise<void> {
           message: `Collecting stats for post ${i + 1} of ${posts.length}…`
         }
       });
+      console.log(`[worker] post ${i + 1}/${posts.length}: ${post.postUrl}`);
       collected.push(await collectPostStats(page, post));
     }
 
     savePosts(collectionId, collected);
     finishCollection(collectionId);
+    console.log(`[worker] collection ${collectionId} done — ${collected.length} posts saved`);
 
     updateJob(userId, {
       phase: "done",
@@ -72,7 +84,8 @@ export async function runCollection(userId: string): Promise<void> {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    failCollection(collectionId, message);
+    console.error(`[worker] collection failed: ${message}`);
+    if (collectionId !== -1) failCollection(collectionId, message);
     updateJob(userId, { phase: "error", error: message, progress: null });
   } finally {
     await browser?.close().catch(() => undefined);

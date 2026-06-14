@@ -1,3 +1,7 @@
+// Must be first import so console is patched before anything else logs.
+import "./log-stream.js";
+import { getRecentLogs, subscribeToLogs } from "./log-stream.js";
+
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -174,6 +178,34 @@ app.get("/api/stream", requireAuth, (req: AuthedRequest, res) => {
   req.on("close", () => {
     clearInterval(heartbeat);
     unsubscribe();
+    res.end();
+  });
+});
+
+// ── Server-Sent Events: live server logs (dev panel) ──────────────────────
+app.get("/api/logs", requireAuth, (req: AuthedRequest, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no"
+  });
+  res.write(": connected\n\n");
+
+  // Send the recent buffer so the panel has history on connect.
+  const recent = getRecentLogs();
+  for (const entry of recent) {
+    res.write(`data: ${JSON.stringify(entry)}\n\n`);
+  }
+
+  const unsub = subscribeToLogs((entry) => {
+    if (!res.writableEnded) res.write(`data: ${JSON.stringify(entry)}\n\n`);
+  });
+  const heartbeat = setInterval(() => { if (!res.writableEnded) res.write(": ping\n\n"); }, 20_000);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    unsub();
     res.end();
   });
 });
