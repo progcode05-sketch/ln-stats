@@ -107,19 +107,56 @@ export class LinkedInChallengeError extends Error {}
 export class LinkedInCredentialError extends Error {}
 
 async function loginWithCredentials(page: Page, email: string, password: string): Promise<void> {
+  console.log("[browser] navigating to LinkedIn login page…");
   await page.goto("https://www.linkedin.com/login", { waitUntil: "domcontentloaded" });
   await sleep(CONFIG.settleDelayMs);
 
-  await page.waitForSelector("#username", { timeout: 15_000 }).catch(() => undefined);
-  const hasForm = await page.$("#username");
-  if (!hasForm) {
-    // Already authenticated from the persisted profile.
-    if (await isLoggedIn(page)) return;
-    throw new LinkedInCredentialError("Could not find the LinkedIn login form.");
+  let url = page.url();
+  const title = await page.title().catch(() => "");
+  console.log(`[browser] landed on: ${url}  ("${title}")`);
+
+  // Dismiss GDPR / cookie-consent overlays that appear in some regions and block the form.
+  const consentSelectors = [
+    "button[data-tracking-control-name*='consent']",
+    "button[action-type='ACCEPT']",
+    "button.artdeco-global-alert-action--primary",
+    "button[data-test-global-alert-action]"
+  ];
+  for (const sel of consentSelectors) {
+    const btn = await page.$(sel).catch(() => null);
+    if (btn) {
+      console.log(`[browser] dismissing consent banner (${sel})…`);
+      await btn.click().catch(() => undefined);
+      await sleep(1_200);
+      break;
+    }
   }
 
-  await page.type("#username", email, { delay: 40 });
-  await page.type("#password", password, { delay: 40 });
+  // LinkedIn has used several input selectors over the years — try them all.
+  const EMAIL_SEL = "input#username, input[name='session_key'], input[autocomplete='username']";
+  await page.waitForSelector(EMAIL_SEL, { timeout: 20_000 }).catch(() => undefined);
+  const emailInput = await page.$(EMAIL_SEL).catch(() => null);
+
+  if (!emailInput) {
+    // Already authenticated from the persisted profile.
+    if (await isLoggedIn(page)) return;
+    url = page.url();
+    const pg = await page.title().catch(() => "");
+    throw new LinkedInCredentialError(
+      `Could not find the LinkedIn login form. Page after navigation: ${url} — "${pg}". ` +
+      "This can happen if LinkedIn shows a cookie-consent wall or if the account needs a security check."
+    );
+  }
+
+  console.log("[browser] filling login form…");
+  await emailInput.click({ clickCount: 3 });
+  await page.keyboard.type(email, { delay: 45 });
+
+  const PASSWORD_SEL = "input#password, input[name='session_password'], input[type='password']";
+  const passInput = await page.$(PASSWORD_SEL).catch(() => null);
+  if (!passInput) throw new LinkedInCredentialError("Found email field but not password field.");
+  await passInput.click({ clickCount: 3 });
+  await page.keyboard.type(password, { delay: 45 });
 
   await Promise.all([
     page.waitForNavigation({ waitUntil: "domcontentloaded" }).catch(() => undefined),
@@ -127,7 +164,7 @@ async function loginWithCredentials(page: Page, email: string, password: string)
   ]);
   await sleep(CONFIG.settleDelayMs);
 
-  const url = page.url();
+  url = page.url();
 
   // LinkedIn threw a security challenge / CAPTCHA / verification step.
   if (/checkpoint|challenge|captcha|add-phone|two-step|verify/i.test(url)) {
