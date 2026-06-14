@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LinkedIn Post Stats</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+
+    <!-- ── Full-screen overlay for connect / setup / progress states ───────── -->
+    <div id="overlay" class="overlay" aria-live="polite">
+      <div class="overlay-card" id="overlayCard">
+        <div class="spinner"></div>
+        <h2>Loading&hellip;</h2>
+      </div>
+    </div>
+
+    <main class="shell" id="shell" hidden>
+
+      <!-- ── Top bar ──────────────────────────────────────────────────────── -->
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">LinkedIn Personal Profile</p>
+          <h1>Post Performance</h1>
+        </div>
+        <div class="topbar-right">
+          <button id="collectBtn" class="btn btn-primary" onclick="triggerCollect()">↻ Collect Again</button>
+          <div class="status">
+            <span id="statusDot"  class="status-dot"></span>
+            <span id="statusText">—</span>
+          </div>
+          <div class="user-chip" id="userChip" hidden>
+            <img id="userAvatar" class="user-avatar" alt="" />
+            <span id="userName" class="user-name"></span>
+            <button class="btn btn-ghost btn-sm" onclick="logout()">Sign out</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- ── Snapshot selector ────────────────────────────────────────────── -->
+      <section class="snapshot-row">
+        <label for="snapshotSelect">Snapshot</label>
+        <select id="snapshotSelect" onchange="onSnapshotChange()"></select>
+        <span id="snapshotMeta" class="snapshot-meta"></span>
+      </section>
+
+      <!-- ── Summary cards (trend = vs previous snapshot) ─────────────────── -->
+      <section class="summary-grid" aria-label="Stats summary">
+        <article class="summary-card">
+          <span>Total Impressions</span>
+          <strong id="totalImpressions">—</strong>
+          <div id="trendImpressions" class="trend-badge"></div>
+        </article>
+        <article class="summary-card">
+          <span>Total Likes</span>
+          <strong id="totalReactions">—</strong>
+          <div id="trendReactions" class="trend-badge"></div>
+        </article>
+        <article class="summary-card">
+          <span>Total Comments</span>
+          <strong id="totalComments">—</strong>
+          <div id="trendComments" class="trend-badge"></div>
+        </article>
+        <article class="summary-card">
+          <span>Total Reposts</span>
+          <strong id="totalReposts">—</strong>
+          <div id="trendReposts" class="trend-badge"></div>
+        </article>
+      </section>
+
+      <!-- ── Meta row ──────────────────────────────────────────────────────── -->
+      <section class="meta-row">
+        <div><span>Posts</span><strong id="postCount">—</strong></div>
+        <div><span>Avg Engagement Rate</span><strong id="avgEngagement">—</strong></div>
+        <div><span>Collected</span><strong id="collectedAt">—</strong></div>
+        <div><span>Window</span><strong id="windowDays">30 days</strong></div>
+      </section>
+
+      <!-- ── Week-over-week growth ─────────────────────────────────────────── -->
+      <section class="growth-panel" id="growthPanel" style="display:none" aria-label="Growth vs previous snapshot">
+        <div class="panel-head">
+          <h2>Growth</h2>
+          <span id="growthSubtitle">vs previous snapshot</span>
+        </div>
+        <div class="growth-grid" id="growthGrid"></div>
+      </section>
+
+      <!-- ── Charts ───────────────────────────────────────────────────────── -->
+      <section class="chart-grid" aria-label="Metric charts">
+        <article class="chart-panel">
+          <div class="panel-head"><h2>Impressions</h2><span id="avgImpressions">Avg —</span></div>
+          <div class="chart-box"><canvas id="impressionsChart"></canvas></div>
+        </article>
+        <article class="chart-panel">
+          <div class="panel-head"><h2>Likes</h2><span id="avgReactions">Avg —</span></div>
+          <div class="chart-box"><canvas id="reactionsChart"></canvas></div>
+        </article>
+        <article class="chart-panel">
+          <div class="panel-head"><h2>Comments</h2><span id="avgComments">Avg —</span></div>
+          <div class="chart-box"><canvas id="commentsChart"></canvas></div>
+        </article>
+        <article class="chart-panel">
+          <div class="panel-head"><h2>Reposts</h2><span id="avgReposts">Avg —</span></div>
+          <div class="chart-box"><canvas id="repostsChart"></canvas></div>
+        </article>
+      </section>
+
+      <!-- ── Posts table ──────────────────────────────────────────────────── -->
+      <section class="table-panel">
+        <div class="panel-head">
+          <h2>All Posts</h2>
+          <span>Click a row to open on LinkedIn</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Age</th>
+                <th>Post Preview</th>
+                <th>Impressions</th>
+                <th>Likes</th>
+                <th>Comments</th>
+                <th>Reposts</th>
+                <th>Engagement</th>
+              </tr>
+            </thead>
+            <tbody id="postsTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── Footer ───────────────────────────────────────────────────────── -->
+      <footer class="app-footer">
+        <button class="btn btn-ghost btn-sm" onclick="disconnectLinkedIn()">Disconnect LinkedIn credentials</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAccount()">Delete account &amp; all data</button>
+      </footer>
+
+    </main>
+
+    <script src="/vendor/chart.umd.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

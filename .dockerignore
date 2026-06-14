@@ -1,0 +1,10 @@
+node_modules
+.local
+data
+output
+dist
+.git
+.env
+.env.local
+npm-debug.log*
+*.log

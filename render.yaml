@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: ln-stats
+    runtime: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Public URL — must match your Render service URL and the LinkedIn redirect URI.
+      - key: BASE_URL
+        value: https://ln-stats.onrender.com
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_TTL_DAYS
+        value: "30"
+      # Secrets — set these in the Render dashboard (Environment tab). Never commit them.
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
