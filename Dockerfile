@@ -18,8 +18,10 @@ ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 WORKDIR /app
 
 COPY package*.json ./
-# Installs deps AND downloads Chromium (puppeteer postinstall) into the cache dir.
 RUN npm ci
+# Explicitly download Chrome for Testing into the cache dir.
+# This runs after npm ci so it always succeeds even if the postinstall was skipped.
+RUN npx puppeteer browsers install chrome
 
 COPY . .
 
